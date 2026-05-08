@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -9,14 +10,136 @@ const BUTTONS = [
   ['0', '.', '='],
 ];
 
+const OPERATORS = ['÷', '×', '-', '+'];
+
+function calculate(a, b, op) {
+  switch (op) {
+    case '+':
+      return a + b;
+    case '-':
+      return a - b;
+    case '×':
+      return a * b;
+    case '÷':
+      return a / b;
+    default:
+      return b;
+  }
+}
+
+function formatNumber(num) {
+  if (!Number.isFinite(num)) return String(num);
+  const rounded = Math.round(num * 1e10) / 1e10;
+  return String(rounded);
+}
+
 export default function App() {
+  const [display, setDisplay] = useState('0');
+  const [previous, setPrevious] = useState(null);
+  const [operator, setOperator] = useState(null);
+  const [waitingForOperand, setWaitingForOperand] = useState(false);
+
+  const inputDigit = (digit) => {
+    if (waitingForOperand) {
+      setDisplay(digit);
+      setWaitingForOperand(false);
+    } else {
+      setDisplay(display === '0' ? digit : display + digit);
+    }
+  };
+
+  const inputDot = () => {
+    if (waitingForOperand) {
+      setDisplay('0.');
+      setWaitingForOperand(false);
+      return;
+    }
+    if (!display.includes('.')) {
+      setDisplay(display + '.');
+    }
+  };
+
+  const clearAll = () => {
+    setDisplay('0');
+    setPrevious(null);
+    setOperator(null);
+    setWaitingForOperand(false);
+  };
+
+  const backspace = () => {
+    if (waitingForOperand) return;
+    if (display.length <= 1 || (display.length === 2 && display.startsWith('-'))) {
+      setDisplay('0');
+    } else {
+      setDisplay(display.slice(0, -1));
+    }
+  };
+
+  const percent = () => {
+    const value = parseFloat(display);
+    setDisplay(formatNumber(value / 100));
+    setWaitingForOperand(false);
+  };
+
+  const performOperator = (nextOp) => {
+    const current = parseFloat(display);
+
+    if (previous == null) {
+      setPrevious(current);
+    } else if (operator && !waitingForOperand) {
+      const result = calculate(previous, current, operator);
+      setDisplay(formatNumber(result));
+      setPrevious(result);
+    }
+
+    setOperator(nextOp);
+    setWaitingForOperand(true);
+  };
+
+  const performEquals = () => {
+    if (operator == null || previous == null) return;
+    const current = parseFloat(display);
+    const result = calculate(previous, current, operator);
+    setDisplay(formatNumber(result));
+    setPrevious(null);
+    setOperator(null);
+    setWaitingForOperand(true);
+  };
+
+  const handlePress = (label) => {
+    if (label >= '0' && label <= '9') {
+      inputDigit(label);
+    } else if (label === '.') {
+      inputDot();
+    } else if (label === 'C') {
+      clearAll();
+    } else if (label === '⌫') {
+      backspace();
+    } else if (label === '%') {
+      percent();
+    } else if (label === '=') {
+      performEquals();
+    } else if (OPERATORS.includes(label)) {
+      performOperator(label);
+    }
+  };
+
+  const expressionPreview =
+    previous != null && operator
+      ? `${formatNumber(previous)} ${operator}${waitingForOperand ? '' : ' ' + display}`
+      : '';
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="light" />
       <View style={styles.container}>
         <View style={styles.display}>
-          <Text style={styles.historyText}></Text>
-          <Text style={styles.resultText}>0</Text>
+          <Text style={styles.historyText} numberOfLines={1}>
+            {expressionPreview}
+          </Text>
+          <Text style={styles.resultText} numberOfLines={1} adjustsFontSizeToFit>
+            {display}
+          </Text>
         </View>
 
         <View style={styles.keypad}>
@@ -26,15 +149,18 @@ export default function App() {
                 const isOperator = ['÷', '×', '-', '+', '='].includes(label);
                 const isFunction = ['C', '⌫', '%'].includes(label);
                 const isWide = label === '0';
+                const isActive = operator === label && waitingForOperand;
 
                 return (
                   <TouchableOpacity
                     key={label}
+                    onPress={() => handlePress(label)}
                     style={[
                       styles.button,
                       isWide && styles.buttonWide,
                       isOperator && styles.buttonOperator,
                       isFunction && styles.buttonFunction,
+                      isActive && styles.buttonOperatorActive,
                     ]}
                     activeOpacity={0.7}
                   >
@@ -42,6 +168,7 @@ export default function App() {
                       style={[
                         styles.buttonText,
                         (isOperator || isFunction) && styles.buttonTextLight,
+                        isActive && styles.buttonTextActive,
                       ]}
                     >
                       {label}
@@ -112,6 +239,9 @@ const styles = StyleSheet.create({
   buttonOperator: {
     backgroundColor: '#ff9500',
   },
+  buttonOperatorActive: {
+    backgroundColor: '#fff',
+  },
   buttonFunction: {
     backgroundColor: '#a5a5a5',
   },
@@ -122,5 +252,8 @@ const styles = StyleSheet.create({
   },
   buttonTextLight: {
     color: '#fff',
+  },
+  buttonTextActive: {
+    color: '#ff9500',
   },
 });
