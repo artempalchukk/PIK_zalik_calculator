@@ -11,6 +11,7 @@ const BUTTONS = [
 ];
 
 const OPERATORS = ['÷', '×', '-', '+'];
+const ERROR_TEXT = 'Помилка';
 
 function calculate(a, b, op) {
   switch (op) {
@@ -21,6 +22,7 @@ function calculate(a, b, op) {
     case '×':
       return a * b;
     case '÷':
+      if (b === 0) return ERROR_TEXT;
       return a / b;
     default:
       return b;
@@ -38,6 +40,23 @@ export default function App() {
   const [previous, setPrevious] = useState(null);
   const [operator, setOperator] = useState(null);
   const [waitingForOperand, setWaitingForOperand] = useState(false);
+
+  const isError = display === ERROR_TEXT;
+  const isCleanState =
+    display === '0' && previous == null && operator == null && !waitingForOperand;
+  const clearLabel = isCleanState || isError ? 'AC' : 'C';
+
+  const clearAll = () => {
+    setDisplay('0');
+    setPrevious(null);
+    setOperator(null);
+    setWaitingForOperand(false);
+  };
+
+  const clearEntry = () => {
+    setDisplay('0');
+    setWaitingForOperand(false);
+  };
 
   const inputDigit = (digit) => {
     if (waitingForOperand) {
@@ -57,13 +76,6 @@ export default function App() {
     if (!display.includes('.')) {
       setDisplay(display + '.');
     }
-  };
-
-  const clearAll = () => {
-    setDisplay('0');
-    setPrevious(null);
-    setOperator(null);
-    setWaitingForOperand(false);
   };
 
   const backspace = () => {
@@ -88,6 +100,13 @@ export default function App() {
       setPrevious(current);
     } else if (operator && !waitingForOperand) {
       const result = calculate(previous, current, operator);
+      if (result === ERROR_TEXT) {
+        setDisplay(ERROR_TEXT);
+        setPrevious(null);
+        setOperator(null);
+        setWaitingForOperand(false);
+        return;
+      }
       setDisplay(formatNumber(result));
       setPrevious(result);
     }
@@ -100,6 +119,13 @@ export default function App() {
     if (operator == null || previous == null) return;
     const current = parseFloat(display);
     const result = calculate(previous, current, operator);
+    if (result === ERROR_TEXT) {
+      setDisplay(ERROR_TEXT);
+      setPrevious(null);
+      setOperator(null);
+      setWaitingForOperand(false);
+      return;
+    }
     setDisplay(formatNumber(result));
     setPrevious(null);
     setOperator(null);
@@ -107,12 +133,21 @@ export default function App() {
   };
 
   const handlePress = (label) => {
+    if (label === 'C' || label === 'AC') {
+      if (clearLabel === 'AC') {
+        clearAll();
+      } else {
+        clearEntry();
+      }
+      return;
+    }
+
+    if (isError) return;
+
     if (label >= '0' && label <= '9') {
       inputDigit(label);
     } else if (label === '.') {
       inputDot();
-    } else if (label === 'C') {
-      clearAll();
     } else if (label === '⌫') {
       backspace();
     } else if (label === '%') {
@@ -125,7 +160,7 @@ export default function App() {
   };
 
   const expressionPreview =
-    previous != null && operator
+    !isError && previous != null && operator
       ? `${formatNumber(previous)} ${operator}${waitingForOperand ? '' : ' ' + display}`
       : '';
 
@@ -137,7 +172,11 @@ export default function App() {
           <Text style={styles.historyText} numberOfLines={1}>
             {expressionPreview}
           </Text>
-          <Text style={styles.resultText} numberOfLines={1} adjustsFontSizeToFit>
+          <Text
+            style={[styles.resultText, isError && styles.resultTextError]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
             {display}
           </Text>
         </View>
@@ -146,6 +185,7 @@ export default function App() {
           {BUTTONS.map((row, rowIndex) => (
             <View key={rowIndex} style={styles.row}>
               {row.map((label) => {
+                const displayLabel = label === 'C' ? clearLabel : label;
                 const isOperator = ['÷', '×', '-', '+', '='].includes(label);
                 const isFunction = ['C', '⌫', '%'].includes(label);
                 const isWide = label === '0';
@@ -171,7 +211,7 @@ export default function App() {
                         isActive && styles.buttonTextActive,
                       ]}
                     >
-                      {label}
+                      {displayLabel}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -211,6 +251,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 64,
     fontWeight: '300',
+  },
+  resultTextError: {
+    color: '#ff453a',
+    fontSize: 56,
   },
   keypad: {
     width: '100%',
