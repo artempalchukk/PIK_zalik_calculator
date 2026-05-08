@@ -1,6 +1,15 @@
 import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  FlatList,
+  Modal,
+  Pressable,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 const BUTTONS = [
   ['C', '⌫', '%', '÷'],
@@ -40,6 +49,8 @@ export default function App() {
   const [previous, setPrevious] = useState(null);
   const [operator, setOperator] = useState(null);
   const [waitingForOperand, setWaitingForOperand] = useState(false);
+  const [history, setHistory] = useState([]);
+  const [historyVisible, setHistoryVisible] = useState(false);
 
   const isError = display === ERROR_TEXT;
   const isCleanState =
@@ -119,18 +130,42 @@ export default function App() {
     if (operator == null || previous == null) return;
     const current = parseFloat(display);
     const result = calculate(previous, current, operator);
+    const expression = `${formatNumber(previous)} ${operator} ${display}`;
     if (result === ERROR_TEXT) {
+      setHistory((prev) => [
+        { id: String(Date.now()), expression, result: ERROR_TEXT },
+        ...prev,
+      ]);
       setDisplay(ERROR_TEXT);
       setPrevious(null);
       setOperator(null);
       setWaitingForOperand(false);
       return;
     }
-    setDisplay(formatNumber(result));
+    const formatted = formatNumber(result);
+    setHistory((prev) => [
+      { id: String(Date.now()), expression, result: formatted },
+      ...prev,
+    ]);
+    setDisplay(formatted);
     setPrevious(null);
     setOperator(null);
     setWaitingForOperand(true);
   };
+
+  const useHistoryEntry = (entry) => {
+    if (entry.result === ERROR_TEXT) {
+      setHistoryVisible(false);
+      return;
+    }
+    setDisplay(entry.result);
+    setPrevious(null);
+    setOperator(null);
+    setWaitingForOperand(true);
+    setHistoryVisible(false);
+  };
+
+  const clearHistory = () => setHistory([]);
 
   const handlePress = (label) => {
     if (label === 'C' || label === 'AC') {
@@ -168,6 +203,18 @@ export default function App() {
     <SafeAreaView style={styles.safe}>
       <StatusBar style="light" />
       <View style={styles.container}>
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            onPress={() => setHistoryVisible(true)}
+            style={styles.historyButton}
+            activeOpacity={0.6}
+          >
+            <Text style={styles.historyButtonText}>
+              Історія{history.length > 0 ? ` (${history.length})` : ''}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.display}>
           <Text style={styles.historyText} numberOfLines={1}>
             {expressionPreview}
@@ -220,6 +267,73 @@ export default function App() {
           ))}
         </View>
       </View>
+
+      <Modal
+        visible={historyVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setHistoryVisible(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setHistoryVisible(false)}
+        >
+          <Pressable style={styles.modalSheet} onPress={() => {}}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Історія</Text>
+              <View style={styles.modalActions}>
+                {history.length > 0 && (
+                  <TouchableOpacity
+                    onPress={clearHistory}
+                    style={styles.modalActionBtn}
+                  >
+                    <Text style={styles.modalActionText}>Очистити</Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  onPress={() => setHistoryVisible(false)}
+                  style={styles.modalActionBtn}
+                >
+                  <Text style={styles.modalActionText}>Закрити</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {history.length === 0 ? (
+              <View style={styles.emptyWrap}>
+                <Text style={styles.emptyText}>Історія порожня</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={history}
+                keyExtractor={(item) => item.id}
+                contentContainerStyle={styles.listContent}
+                ItemSeparatorComponent={() => <View style={styles.separator} />}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={styles.historyRow}
+                    onPress={() => useHistoryEntry(item)}
+                    activeOpacity={0.6}
+                  >
+                    <Text style={styles.historyExpression} numberOfLines={1}>
+                      {item.expression}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.historyResult,
+                        item.result === ERROR_TEXT && styles.historyResultError,
+                      ]}
+                      numberOfLines={1}
+                    >
+                      = {item.result}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -299,5 +413,93 @@ const styles = StyleSheet.create({
   },
   buttonTextActive: {
     color: '#ff9500',
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  historyButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: '#1c1c1e',
+  },
+  historyButtonText: {
+    color: '#ff9500',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: '#1c1c1e',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+    paddingBottom: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#3a3a3c',
+  },
+  modalTitle: {
+    color: '#fff',
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  modalActions: {
+    flexDirection: 'row',
+  },
+  modalActionBtn: {
+    marginLeft: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  modalActionText: {
+    color: '#ff9500',
+    fontSize: 15,
+  },
+  listContent: {
+    paddingVertical: 8,
+  },
+  separator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#2c2c2e',
+    marginHorizontal: 20,
+  },
+  historyRow: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+  },
+  historyExpression: {
+    color: '#a0a0a5',
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  historyResult: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '500',
+  },
+  historyResultError: {
+    color: '#ff453a',
+  },
+  emptyWrap: {
+    paddingVertical: 48,
+    alignItems: 'center',
+  },
+  emptyText: {
+    color: '#888',
+    fontSize: 16,
   },
 });
