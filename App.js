@@ -3,11 +3,11 @@ import { StatusBar } from 'expo-status-bar';
 import {
   FlatList,
   Modal,
+  Platform,
   Pressable,
   SafeAreaView,
   StyleSheet,
   Text,
-  TouchableOpacity,
   View,
 } from 'react-native';
 
@@ -204,15 +204,18 @@ export default function App() {
       <StatusBar style="light" />
       <View style={styles.container}>
         <View style={styles.topBar}>
-          <TouchableOpacity
+          <Text style={styles.appTitle}>Калькулятор</Text>
+          <Pressable
             onPress={() => setHistoryVisible(true)}
-            style={styles.historyButton}
-            activeOpacity={0.6}
+            style={({ pressed }) => [
+              styles.historyButton,
+              pressed && styles.pressed,
+            ]}
           >
             <Text style={styles.historyButtonText}>
-              Історія{history.length > 0 ? ` (${history.length})` : ''}
+              Історія{history.length > 0 ? ` · ${history.length}` : ''}
             </Text>
-          </TouchableOpacity>
+          </Pressable>
         </View>
 
         <View style={styles.display}>
@@ -239,17 +242,17 @@ export default function App() {
                 const isActive = operator === label && waitingForOperand;
 
                 return (
-                  <TouchableOpacity
+                  <Pressable
                     key={label}
                     onPress={() => handlePress(label)}
-                    style={[
+                    style={({ pressed }) => [
                       styles.button,
                       isWide && styles.buttonWide,
                       isOperator && styles.buttonOperator,
                       isFunction && styles.buttonFunction,
                       isActive && styles.buttonOperatorActive,
+                      pressed && styles.pressed,
                     ]}
-                    activeOpacity={0.7}
                   >
                     <Text
                       style={[
@@ -260,7 +263,7 @@ export default function App() {
                     >
                       {displayLabel}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 );
               })}
             </View>
@@ -283,19 +286,25 @@ export default function App() {
               <Text style={styles.modalTitle}>Історія</Text>
               <View style={styles.modalActions}>
                 {history.length > 0 && (
-                  <TouchableOpacity
+                  <Pressable
                     onPress={clearHistory}
-                    style={styles.modalActionBtn}
+                    style={({ pressed }) => [
+                      styles.modalActionBtn,
+                      pressed && styles.pressed,
+                    ]}
                   >
                     <Text style={styles.modalActionText}>Очистити</Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
-                <TouchableOpacity
+                <Pressable
                   onPress={() => setHistoryVisible(false)}
-                  style={styles.modalActionBtn}
+                  style={({ pressed }) => [
+                    styles.modalActionBtn,
+                    pressed && styles.pressed,
+                  ]}
                 >
                   <Text style={styles.modalActionText}>Закрити</Text>
-                </TouchableOpacity>
+                </Pressable>
               </View>
             </View>
 
@@ -310,10 +319,12 @@ export default function App() {
                 contentContainerStyle={styles.listContent}
                 ItemSeparatorComponent={() => <View style={styles.separator} />}
                 renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.historyRow}
+                  <Pressable
+                    style={({ pressed }) => [
+                      styles.historyRow,
+                      pressed && styles.historyRowPressed,
+                    ]}
                     onPress={() => useHistoryEntry(item)}
-                    activeOpacity={0.6}
                   >
                     <Text style={styles.historyExpression} numberOfLines={1}>
                       {item.expression}
@@ -327,7 +338,7 @@ export default function App() {
                     >
                       = {item.result}
                     </Text>
-                  </TouchableOpacity>
+                  </Pressable>
                 )}
               />
             )}
@@ -341,34 +352,39 @@ export default function App() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: '#0f0f0f',
+    backgroundColor: '#0a0a0a',
+    paddingTop: Platform.OS === 'android' ? 24 : 0,
   },
   container: {
     flex: 1,
     justifyContent: 'flex-end',
     paddingHorizontal: 12,
-    paddingBottom: 16,
+    paddingBottom: 20,
   },
   display: {
     flex: 1,
     justifyContent: 'flex-end',
     alignItems: 'flex-end',
-    paddingHorizontal: 12,
-    paddingBottom: 24,
+    paddingHorizontal: 16,
+    paddingBottom: 28,
   },
   historyText: {
-    color: '#888',
-    fontSize: 24,
-    marginBottom: 8,
+    color: '#7a7a7e',
+    fontSize: 22,
+    marginBottom: 10,
+    fontWeight: '300',
   },
   resultText: {
     color: '#fff',
-    fontSize: 64,
-    fontWeight: '300',
+    fontSize: 72,
+    fontWeight: '200',
+    letterSpacing: -1,
   },
   resultTextError: {
     color: '#ff453a',
     fontSize: 56,
+    fontWeight: '300',
+    letterSpacing: 0,
   },
   keypad: {
     width: '100%',
@@ -376,23 +392,28 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 10,
+    marginBottom: 12,
   },
   button: {
     flex: 1,
     aspectRatio: 1,
-    marginHorizontal: 5,
+    marginHorizontal: 6,
     borderRadius: 100,
     backgroundColor: '#1c1c1e',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
   },
   buttonWide: {
     flex: 2.15,
     aspectRatio: undefined,
     height: undefined,
     alignItems: 'flex-start',
-    paddingLeft: 32,
+    paddingLeft: 36,
   },
   buttonOperator: {
     backgroundColor: '#ff9500',
@@ -405,7 +426,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#fff',
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '400',
   },
   buttonTextLight: {
@@ -414,22 +435,34 @@ const styles = StyleSheet.create({
   buttonTextActive: {
     color: '#ff9500',
   },
+  pressed: {
+    opacity: 0.6,
+  },
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 12,
-    paddingTop: 8,
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  appTitle: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '600',
+    letterSpacing: 0.3,
   },
   historyButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 14,
-    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 18,
     backgroundColor: '#1c1c1e',
   },
   historyButtonText: {
     color: '#ff9500',
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
   modalBackdrop: {
     flex: 1,
@@ -478,8 +511,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
   },
   historyRow: {
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 20,
+  },
+  historyRowPressed: {
+    backgroundColor: '#2c2c2e',
   },
   historyExpression: {
     color: '#a0a0a5',
